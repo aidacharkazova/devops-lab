@@ -1,0 +1,98 @@
+---
+- name: Deploy University Student Portal with Docker Compose
+  hosts: app_servers
+  become: true
+
+  tasks:
+    # ---------- Docker Engine ----------
+    - name: Install packages needed for the Docker apt repository
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - python3-debian
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Create apt keyrings directory
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Download Docker GPG key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    - name: Add Docker apt repository
+      ansible.builtin.deb822_repository:
+        name: docker
+        types: deb
+        uris: https://download.docker.com/linux/ubuntu
+        suites: "{{ ansible_facts['distribution_release'] }}"
+        components: stable
+        architectures: "{{ docker_apt_arch[ansible_facts['architecture']] }}"
+        signed_by: /etc/apt/keyrings/docker.asc
+        state: present
+      register: docker_repo
+
+    - name: Install Docker Engine and Compose plugin
+      ansible.builtin.apt:
+        name: "{{ docker_packages }}"
+        state: present
+        # Refresh the package list only when the Docker repository was just added
+        update_cache: "{{ docker_repo is changed }}"
+
+    - name: Enable and start Docker service
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    # ---------- Portal files ----------
+    - name: Create portal project directory
+      ansible.builtin.file:
+        path: "{{ portal_project_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Copy Dockerfile, compose.yml and app/ to the server
+      ansible.builtin.copy:
+        src: "{{ portal_src_dir }}/{{ item }}"
+        dest: "{{ portal_project_dir }}/"
+        mode: "0644"
+        directory_mode: "0755"
+      loop: "{{ portal_files }}"
+      register: portal_copy
+
+    - name: Write Compose .env with image name and port
+      ansible.builtin.template:
+        src: portal.env.j2
+        dest: "{{ portal_project_dir }}/.env"
+        mode: "0644"
+
+    # ---------- Compose services ----------
+    - name: Build image and start portal and Redis
+      community.docker.docker_compose_v2:
+        project_src: "{{ portal_project_dir }}"
+        state: present
+        # Rebuild only when the copied source changed; otherwise reuse the existing image
+        build: "{{ 'always' if portal_copy is changed else 'policy' }}"
+        wait: true
+        wait_timeout: 120
+
+    # ---------- Verification ----------
+    - name: Check portal health endpoint
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ portal_port }}{{ portal_health_path }}"
+        return_content: true
+      register: portal_health
+      until: portal_health.status == 200
+      retries: 15
+      delay: 2
+
+    - name: Show health check result
+      ansible.builtin.debug:
+        msg: "{{ portal_health_path }} -> HTTP {{ portal_health.status }} {{ portal_health.json }}"
