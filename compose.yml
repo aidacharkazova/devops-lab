@@ -1,0 +1,29 @@
+services:
+  portal:
+    build: .
+    image: ${PORTAL_IMAGE:-student-portal:1.0}
+    ports:
+      - "${PORTAL_PORT:-8080}:5000"
+    environment:
+      # The portal reaches Redis by its Compose service name
+      REDIS_HOST: redis
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    # AOF persistence: every write is saved to /data, so counters survive restarts
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  redis-data:
