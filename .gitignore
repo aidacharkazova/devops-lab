@@ -1,0 +1,32 @@
+# Secrets and environment files
+.env
+.env.*
+*.env
+
+# Logs
+*.log
+
+# Private keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+id_ecdsa*
+!*.pub
+
+# Ansible
+*.retry
+.vault_pass*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
