@@ -1,0 +1,28 @@
+# Starts the local test app server:
+#   SSH_PUBKEY="$(cat ~/.ssh/uni_devops_lab.pub)" docker compose -f test-server/compose.yml up -d --build
+services:
+  app-server:
+    build:
+      context: .
+      args:
+        SSH_PUBKEY: ${SSH_PUBKEY:?set SSH_PUBKEY to the control node public key}
+    image: uni-app-server:24.04
+    hostname: app-server
+    # systemd and the Docker engine that Ansible installs need a privileged container
+    privileged: true
+    cgroup: host
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      # Real filesystems for the nested Docker engine (overlayfs cannot stack on overlayfs)
+      - app-server-docker:/var/lib/docker
+      - app-server-containerd:/var/lib/containerd
+    tmpfs:
+      - /run
+      - /run/lock
+    ports:
+      - "2222:22"   # SSH for Ansible
+      - "8080:8080" # student portal
+
+volumes:
+  app-server-docker:
+  app-server-containerd:
