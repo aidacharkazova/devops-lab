@@ -1,0 +1,10 @@
+.git
+.gitignore
+.dockerignore
+ansible/
+test-server/
+README.md
+**/__pycache__
+**/*.py[cod]
+**/.env
+**/*.log
