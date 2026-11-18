@@ -1,0 +1,25 @@
+---
+# Student portal deployment settings
+portal_image: student-portal:1.0
+portal_port: 8080
+portal_project_dir: /opt/student-portal
+portal_health_path: /health
+
+# Local folder that holds Dockerfile, compose.yml and app/ (the repository root)
+portal_src_dir: "{{ playbook_dir }}/.."
+portal_files:
+  - Dockerfile
+  - .dockerignore
+  - compose.yml
+  - app
+
+# Docker Engine from the official Docker apt repository
+docker_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+docker_apt_arch:
+  x86_64: amd64
+  aarch64: arm64
